@@ -1,12 +1,18 @@
 package com.example.android.quakereport;
 
 import android.util.Log;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 
 /**
  * Helper methods related to requesting and receiving earthquake data from USGS.
@@ -48,12 +54,19 @@ public final class QueryUtils {
         try {
             JSONObject json = new JSONObject(SAMPLE_JSON_RESPONSE);
             JSONArray feature_array = json.getJSONArray("features");
-            for(int i = 0; i < feature_array.length(); i++){
+            for (int i = 0; i < feature_array.length(); i++) {
                 JSONObject temp_object = feature_array.getJSONObject(i).getJSONObject("properties");
-                String mag = temp_object.getString("mag");
+                //String mag = temp_object.getString("mag");
                 String loc = temp_object.getString("place");
-                String date  = temp_object.getString("time");
-                Earthquake earthquake = new Earthquake(mag, loc, date);
+//                String date  = temp_object.getString("time");
+//                Long date_long = Long.parseLong(date);
+                double mag_double = temp_object.getDouble("mag");
+                long date_long = temp_object.getLong("time");
+                String url = temp_object.getString("url");
+                Date dateObject = new Date(date_long);
+                SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss a");
+                String formatted_date = dateFormatter.format(dateObject);
+                Earthquake earthquake = new Earthquake(mag_double, loc, date_long, url);
                 earthquakes.add(earthquake);
             }
             // TODO: Parse the response given by the SAMPLE_JSON_RESPONSE string and
