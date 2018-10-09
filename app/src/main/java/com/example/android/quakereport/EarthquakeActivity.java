@@ -17,7 +17,9 @@ package com.example.android.quakereport;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -27,7 +29,16 @@ import android.widget.ListView;
 
 import org.w3c.dom.Text;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.List;
 
 public class EarthquakeActivity extends AppCompatActivity {
 
@@ -38,29 +49,14 @@ public class EarthquakeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
 
+        EarthquakeSyncTask task = new EarthquakeSyncTask();
+        task.execute();
 
+    }
 
+    private void lauchEarthquakeAdaptor(ArrayList<Earthquake> earthquakeList){
 
-//        ArrayList<Earthquake> earthquakes1 = new ArrayList<>();
-//        earthquakes1.add(new Earthquake("7.2","San Francisco","Feb 2, 2016"));
-//        earthquakes1.add(new Earthquake("6.1","London","July 20, 2015"));
-//        earthquakes1.add(new Earthquake("3.9","Tokyo","Nov 10, 2014"));
-//        earthquakes1.add(new Earthquake("5.4","Mexico City","May 3, 2014"));
-//        earthquakes1.add(new Earthquake("2.8","Moscow","Jan 31, 2013"));
-//        earthquakes1.add(new Earthquake("4.9","Rio de Janeiro","Aug 19, 2012"));
-//        earthquakes1.add(new Earthquake("1.6","Paris","Oct 30, 2011"));
-
-        ArrayList<Earthquake> earthquakes1 = QueryUtils.extractEarthquakes();
-        // Find a reference to the {@link ListView} in the layout
-
-        // Create a new {@link ArrayAdapter} of earthquakes
-//        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
-//                this, android.R.layout.simple_list_item_1, earthquakes);
-
-        final EarthquakeAdaptor earthquakeAdapter = new EarthquakeAdaptor(this, earthquakes1);
-
-        // Get a reference to the ListView, and attach the adapter to the listView.
-        //ListView listView = (ListView) findViewById(R.id.list);
+        final EarthquakeAdaptor earthquakeAdapter = new EarthquakeAdaptor(this, earthquakeList);
         ListView earthquakeListView = (ListView) findViewById(R.id.list);
         //earthquakeListView.setAdapter(earthquakeAdapter);
 
@@ -84,5 +80,90 @@ public class EarthquakeActivity extends AppCompatActivity {
                 startActivity(websiteIntent);
             }
         });
+    }
+
+    class EarthquakeSyncTask extends AsyncTask<URL, Void, ArrayList<Earthquake>> {
+
+
+        @Override
+        protected ArrayList<Earthquake> doInBackground(URL... urls) {
+            ArrayList<Earthquake> earthquakes;
+            URL url = createUrl("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=6&limit=10");
+            String jsonResponse = "";
+
+            try {
+                jsonResponse = makeHttpRequest(url);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            earthquakes = QueryUtils.extractEarthquakes(jsonResponse);
+
+            return earthquakes;
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<Earthquake> earthquake_list) {
+            if (earthquake_list == null) {
+                return;
+            }
+
+            lauchEarthquakeAdaptor(earthquake_list);
+
+        }
+
+        private URL createUrl(String APIEndpt){
+            URL url = null;
+            try {
+                url = new URL(APIEndpt);
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+            return url;
+        }
+
+        private String makeHttpRequest(URL url) throws IOException {
+            String jsonResponse = "";
+            if(url == null) return jsonResponse;
+            HttpURLConnection urlConnection = null;
+            InputStream inputStream = null;
+
+            try{
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.setRequestMethod("GET");
+                urlConnection.connect();
+                if(urlConnection.getResponseCode() == 200){
+                    inputStream = urlConnection.getInputStream();
+                    jsonResponse = readFromInputStream(inputStream);
+                }else{
+                    Log.e(LOG_TAG,"Error response code: " + urlConnection.getResponseCode());
+                }
+            }catch (IOException e){
+                Log.e(LOG_TAG, "Error in I/O",  e);
+            }finally {
+                if(urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+                if(inputStream != null){
+                    inputStream.close();
+                }
+            }
+            return jsonResponse;
+        }
+
+        private String readFromInputStream(InputStream inputStream) throws IOException{
+            StringBuilder output = new StringBuilder();
+            if (inputStream != null) {
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream, Charset.forName("UTF-8"));
+                BufferedReader reader = new BufferedReader(inputStreamReader);
+                String line = reader.readLine();
+                while (line != null) {
+                    output.append(line);
+                    line = reader.readLine();
+                }
+                reader.close();
+            }
+            return output.toString();
+        }
     }
 }
