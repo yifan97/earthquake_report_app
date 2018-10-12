@@ -20,6 +20,8 @@ import android.app.LoaderManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.Loader;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -31,6 +33,7 @@ import android.widget.ArrayAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import org.w3c.dom.Text;
@@ -77,8 +80,20 @@ public class EarthquakeActivity extends AppCompatActivity implements LoaderManag
     @Override
     public void onLoadFinished(Loader<List<Earthquake>> loader, List<Earthquake> earthquakeList) {
         Log.i(LOG_TAG,"TEST: onfinishcall");
-        mEmptyStateTextView.setText(R.string.no_earthquakes);
-        //lauchEarthquakeAdaptor((ArrayList<Earthquake>) earthquakeList);
+        View loadingIndicator = findViewById(R.id.loading_indicator);
+        loadingIndicator.setVisibility(View.GONE);
+        ConnectivityManager cm =
+                (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);   // can leave out this keyword here
+
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        boolean isConnected = activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
+        if(isConnected){
+            mEmptyStateTextView.setText(R.string.no_earthquakes);
+            lauchEarthquakeAdaptor((ArrayList<Earthquake>) earthquakeList);
+        }else{
+            mEmptyStateTextView.setText(R.string.no_network);
+        }
     }
 
     @Override
